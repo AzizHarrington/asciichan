@@ -4,6 +4,7 @@ from xml.dom import minidom
 
 import webapp2
 import jinja2
+import logging
 
 from google.appengine.ext import db
 
@@ -31,13 +32,11 @@ def gmaps_img(points):
 
 IP_URL = "http://api.hostip.info/?ip="
 def get_coords(ip):
-	ip = "4.2.2.2"
-	ip = "23.24.209.141"
 	url = IP_URL + ip
 	content = None
 	try:
 	    content = urllib2.urlopen(url).read()
-	except URLError:
+	except urllib2.URLError:
 		return
 
 	if content:
@@ -53,11 +52,23 @@ class Art(db.Model):
 	created = db.DateTimeProperty(auto_now_add = True)
 	coords = db.GeoPtProperty()
 
-class MainPage(Handler):
-	def render_front(self, title="", art="", error=""):
+CACHE = {}
+def top_arts(update = False):
+	key = 'top'
+	if not update and key in CACHE:
+		arts = CACHE[key]
+	else:
+		logging.error("DB QUERY")
 		arts = db.GqlQuery("SELECT * FROM Art ORDER BY created DESC")
 		#prevent the running of multiple queries
 		arts = list(arts)
+		CACHE[key] = arts
+	return arts
+
+class MainPage(Handler):
+	def render_front(self, title="", art="", error=""):
+		arts = top_arts()
+
 		#find which arts have coords
 		points = filter(None, (a.coords for a in arts))
 
@@ -88,6 +99,8 @@ class MainPage(Handler):
 				p.coords = coords
 
 			p.put()
+			#rerun the query and update the cache
+			top_arts(True)
 
 			self.redirect("/")
 		else:
