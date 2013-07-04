@@ -7,6 +7,7 @@ import jinja2
 import logging
 
 from google.appengine.ext import db
+from google.appengine.api import memcache
 
 template_dir = os.path.join(os.path.dirname(__file__), 'templates')
 jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir),
@@ -32,6 +33,7 @@ def gmaps_img(points):
 
 IP_URL = "http://api.hostip.info/?ip="
 def get_coords(ip):
+	ip = '67.175.72.40'
 	url = IP_URL + ip
 	content = None
 	try:
@@ -52,17 +54,16 @@ class Art(db.Model):
 	created = db.DateTimeProperty(auto_now_add = True)
 	coords = db.GeoPtProperty()
 
-CACHE = {}
+
 def top_arts(update = False):
 	key = 'top'
-	if not update and key in CACHE:
-		arts = CACHE[key]
-	else:
+	arts = memcache.get(key)
+	if arts is None or update:
 		logging.error("DB QUERY")
 		arts = db.GqlQuery("SELECT * FROM Art ORDER BY created DESC")
 		#prevent the running of multiple queries
 		arts = list(arts)
-		CACHE[key] = arts
+		memcache.set(key, arts)
 	return arts
 
 class MainPage(Handler):
