@@ -5,6 +5,7 @@ from xml.dom import minidom
 import webapp2
 import jinja2
 import logging
+import time
 
 from google.appengine.ext import db
 from google.appengine.api import memcache
@@ -101,6 +102,7 @@ class MainPage(Handler):
 
 			p.put()
 			#rerun the query and update the cache
+			time.sleep(0.1) #buffer against replication lag
 			top_arts(True)
 
 			self.redirect("/")
